@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Record Management System | AWS Cloud Practical</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="container top-bar-inner">
+            <div class="brand">
+                <div class="brand-badge">AWS</div>
+                <div>
+                    <h1>Student Record Management System</h1>
+                    <p class="subtitle">Cloud Computing Practical &mdash; Amazon EC2 &bull; DynamoDB &bull; CloudWatch &bull; Auto Scaling</p>
+                </div>
+            </div>
+            <div class="status-cluster">
+                <span class="mode-pill mode-{{ storage_meta.backend }}" title="{{ storage_meta.detail }}">
+                    <span class="dot"></span>
+                    {{ storage_meta.badge_label }}
+                </span>
+                <a href="{{ url_for('health_check') }}" class="health-link" target="_blank" rel="noopener">
+                    /health
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container main-content">
+        {% if storage_error %}
+        <div class="alert alert-error" role="alert">
+            <strong>Storage Backend Error:</strong> {{ storage_error }}
+        </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="flash-messages" aria-label="Notifications">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="status">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <div class="dashboard-grid">
+            <!-- Form Panel: Add or Edit Student Record -->
+            <section class="card form-card">
+                {% if edit_student %}
+                    <div class="card-header">
+                        <h2>Edit Student Record</h2>
+                        <span class="tag tag-edit">Editing Mode</span>
+                    </div>
+                    <p class="card-description">
+                        Update the details below and click <strong>Save Changes</strong>.
+                    </p>
+                    <form action="{{ url_for('edit_student', student_id=edit_student.student_id) }}" method="POST" novalidate>
+                        <input type="hidden" name="created_at" value="{{ edit_student.created_at }}">
+
+                        <div class="form-group">
+                            <label for="readonly_student_id">Student ID (UUID)</label>
+                            <input
+                                type="text"
+                                id="readonly_student_id"
+                                value="{{ edit_student.student_id }}"
+                                readonly
+                                class="input-readonly"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="name">Full Name <span class="required">*</span></label>
+                            <input
+                                type="text"
+                                id="name"
+                                name="name"
+                                value="{{ edit_student.name }}"
+                                placeholder="e.g., Aarav Patel"
+                                maxlength="100"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address <span class="required">*</span></label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                value="{{ edit_student.email }}"
+                                placeholder="e.g., aarav.patel@university.edu"
+                                maxlength="150"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="course">Course / Program <span class="required">*</span></label>
+                            <input
+                                type="text"
+                                id="course"
+                                name="course"
+                                value="{{ edit_student.course }}"
+                                placeholder="e.g., B.Tech Computer Engineering"
+                                maxlength="100"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="card-header">
+                        <h2>Add New Student</h2>
+                        <span class="tag tag-create">Create</span>
+                    </div>
+                    <p class="card-description">
+                        Enter student details below. A unique UUID and UTC timestamp are assigned automatically.
+                    </p>
+                    <form action="{{ url_for('add_student') }}" method="POST" novalidate>
+                        <div class="form-group">
+                            <label for="name">Full Name <span class="required">*</span></label>
+                            <input
+                                type="text"
+                                id="name"
+                                name="name"
+                                value="{{ form_values.name }}"
+                                placeholder="e.g., Priya Sharma"
+                                maxlength="100"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address <span class="required">*</span></label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                value="{{ form_values.email }}"
+                                placeholder="e.g., priya.sharma@college.edu"
+                                maxlength="150"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="course">Course / Program <span class="required">*</span></label>
+                            <input
+                                type="text"
+                                id="course"
+                                name="course"
+                                value="{{ form_values.course }}"
+                                placeholder="e.g., Cloud Computing & Distributed Systems"
+                                maxlength="100"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Add Student Record</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </section>
+
+            <!-- Records Table Panel -->
+            <section class="card table-card">
+                <div class="card-header">
+                    <div>
+                        <h2>Student Directory</h2>
+                        <p class="card-subtitle">{{ storage_meta.detail }}</p>
+                    </div>
+                    <span class="count-badge">
+                        {{ students|length }} {{ 'Record' if students|length == 1 else 'Records' }}
+                    </span>
+                </div>
+
+                {% if students %}
+                    <div class="table-responsive">
+                        <table class="records-table">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Course</th>
+                                    <th>Created (UTC)</th>
+                                    <th class="actions-col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr class="{% if edit_student and edit_student.student_id == student.student_id %}row-editing{% endif %}">
+                                    <td class="mono-cell" title="{{ student.student_id }}">
+                                        <code>{{ student.student_id }}</code>
+                                    </td>
+                                    <td class="name-cell">{{ student.name }}</td>
+                                    <td>
+                                        <a href="mailto:{{ student.email }}" class="email-link">{{ student.email }}</a>
+                                    </td>
+                                    <td>
+                                        <span class="course-pill">{{ student.course }}</span>
+                                    </td>
+                                    <td class="timestamp-cell">{{ student.created_at }}</td>
+                                    <td class="actions-cell">
+                                        <a
+                                            href="{{ url_for('edit_student', student_id=student.student_id) }}"
+                                            class="btn btn-sm btn-outline"
+                                        >
+                                            Edit
+                                        </a>
+                                        <form
+                                            action="{{ url_for('delete_student', student_id=student.student_id) }}"
+                                            method="POST"
+                                            class="inline-form"
+                                            onsubmit="return confirm('Delete student record for {{ student.name }}?');"
+                                        >
+                                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon" aria-hidden="true">&#127891;</div>
+                        <h3>No Student Records Found</h3>
+                        <p>
+                            There are currently no student records stored in
+                            <strong>{{ storage_meta.badge_label }}</strong>.
+                            Use the form on the left to add your first student record!
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <span>Student Record Management System &bull; Python Flask + Boto3</span>
+            <span>Storage Mode: <strong>{{ storage_meta.backend|upper }}</strong></span>
+        </div>
+    </footer>
+</body>
+</html>
