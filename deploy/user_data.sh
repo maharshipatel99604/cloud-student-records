@@ -16,7 +16,7 @@ echo "=== [1/8] Starting Student Record App Bootstrap at $(date -u) ==="
 # REQUIRED PLACEHOLDERS — UPDATE BEFORE PASTING INTO EC2 LAUNCH TEMPLATE
 # ============================================================================
 REPO_URL="https://github.com/maharshipatel99604/cloud-student-records.git"
-AWS_REGION="ap-south-1"
+AWS_REGION="ap-southeast-2"
 DYNAMODB_TABLE_NAME="StudentRecords"
 APP_DIR="/opt/student-record-app"
 APP_USER="ec2-user"
